@@ -228,8 +228,7 @@ Example document:
 ## Security Considerations
 
 ### Admin Access
-- Only `gtnjstudios@gmail.com` can access the admin dashboard
-- Password is: `t2YUXNUEWduZ`
+
 - **IMPORTANT**: Change this password after first login via Firebase Console
 
 ### Firestore Security Rules

@@ -3,12 +3,12 @@
 // You can find these in Firebase Console > Project Settings > General > Your apps > SDK setup and configuration
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyBzzCOHTmexgmAM_5FNnrOXoTiaA2VIHos",
   authDomain: "gtnjstudios-b3140.firebaseapp.com",
   projectId: "gtnjstudios-b3140",
-  storageBucket: "gtnjstudios-b3140.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  storageBucket: "gtnjstudios-b3140.firebasestorage.app",
+  messagingSenderId: "965460104588",
+  appId: "1:965460104588:web:c785892596789436fbf2a9"
 };
 
 // Initialize Firebase
