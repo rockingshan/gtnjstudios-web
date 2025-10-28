@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Request account deletion for GTNJ Studios applications.">
+  <title>Delete Account - GTNJ Studios</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <div class="logo-container">
+        <img src="logo.png" alt="GTNJ Studios Logo" class="logo">
+        <a href="index.html" class="brand-name">GTNJ Studios</a>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="index.html#about">About</a></li>
+        <li><a href="index.html#apps">Our Apps</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Delete Account Content -->
+  <div class="delete-container">
+    <h1 class="section-title" style="text-align: center; margin-bottom: 2rem;">
+      Account Deletion Request
+    </h1>
+
+    <div class="delete-form-card">
+      <!-- Warning Section -->
+      <div class="warning-section">
+        <h3>⚠ Important: Please Read Before Proceeding</h3>
+        <p style="margin-bottom: 1rem; color: #d32f2f; font-weight: 600;">
+          Submitting this request will have the following <strong>PERMANENT</strong> consequences:
+        </p>
+        <ul class="warning-list">
+          <li>
+            <strong>Deletion is Permanent:</strong> Your account will be permanently deleted
+            from our database and cannot be recovered.
+          </li>
+          <li>
+            <strong>Credit Loss:</strong> Any purchased credits or in-app purchases will be
+            permanently lost and cannot be restored or refunded.
+          </li>
+          <li>
+            <strong>Email Ban:</strong> The email address used for this deletion cannot be
+            used again to sign up for any GTNJ Studios services in the future.
+          </li>
+        </ul>
+      </div>
+
+      <!-- Deletion Form -->
+      <form id="deletionForm">
+        <div class="form-group">
+          <label for="email">Enter Valid Email Address</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            placeholder="your.email@example.com"
+            autocomplete="email"
+          >
+        </div>
+
+        <!-- CAPTCHA -->
+        <div class="captcha-container">
+          <div class="captcha-question" id="captchaQuestion">
+            Loading CAPTCHA...
+          </div>
+          <input
+            type="number"
+            id="captchaAnswer"
+            class="captcha-input"
+            required
+            placeholder="Your answer"
+            autocomplete="off"
+          >
+        </div>
+
+        <button type="submit" class="submit-button" id="submitButton">
+          Submit Deletion Request
+        </button>
+      </form>
+
+      <!-- Success Message -->
+      <div class="success-message" id="successMessage">
+        Your deletion request has been submitted successfully. Our team will process
+        your request within 24-48 hours. You will receive a confirmation email once
+        your account has been deleted.
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-message" id="errorMessage">
+        <!-- Error message will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>GTNJ Studios</h3>
+        <p>Creating AI-Driven Solutions for Daily Life</p>
+      </div>
+
+      <div class="footer-section">
+        <h3>Quick Links</h3>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="index.html#about">About Us</a></li>
+          <li><a href="index.html#apps">Our Apps</a></li>
+          <li><a href="privacy.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-section">
+        <h3>Contact</h3>
+        <ul>
+          <li><a href="mailto:gtnjstudios@gmail.com">gtnjstudios@gmail.com</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>&copy; 2024 GTNJ Studios. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase Config -->
+  <script src="js/firebaseConfig.js"></script>
+
+  <!-- App Script -->
+  <script src="js/app.js"></script>
+</body>
+</html>
