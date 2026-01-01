@@ -230,3 +230,470 @@ auth.onAuthStateChanged((user) => {
     adminDashboard.style.display = 'none';
   }
 });
+
+// ==================== LINK MANAGEMENT SYSTEM ====================
+
+// Initialize Link Management System after DOM is fully loaded
+function initializeLinkManagement() {
+  // UI Elements for Link Manager
+  const navTabs = document.querySelectorAll('.nav-tab');
+  const deletionRequestsTab = document.getElementById('deletion-requests-tab');
+  const linkManagerTab = document.getElementById('link-manager-tab');
+  const createLinkButton = document.getElementById('createLinkButton');
+  const linksTableBody = document.getElementById('linksTableBody');
+  const noLinksMessage = document.getElementById('noLinksMessage');
+
+  // Modal Elements
+  const linkModal = document.getElementById('linkModal');
+  const closeModal = document.getElementById('closeModal');
+  const cancelButton = document.getElementById('cancelButton');
+  const linkForm = document.getElementById('linkForm');
+  const modalTitle = document.getElementById('modalTitle');
+  const saveLinkButton = document.getElementById('saveLinkButton');
+  const analyticsModal = document.getElementById('analyticsModal');
+  const closeAnalyticsModal = document.getElementById('closeAnalyticsModal');
+
+  if (!linkModal || !linkForm || !createLinkButton) {
+    console.error('Critical elements missing! Cannot initialize link management.');
+    return;
+  }
+
+  // Tab Navigation
+  navTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.dataset.tab;
+
+      // Update active tab
+      navTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Show/hide content
+      if (targetTab === 'deletion-requests') {
+        deletionRequestsTab.style.display = 'block';
+        linkManagerTab.style.display = 'none';
+      } else if (targetTab === 'link-manager') {
+        deletionRequestsTab.style.display = 'none';
+        linkManagerTab.style.display = 'block';
+        loadLinks();
+      }
+    });
+  });
+
+  // Load Links from Firestore
+  let linksUnsubscribe = null;
+
+  function loadLinks() {
+    if (linksUnsubscribe) {
+      linksUnsubscribe();
+    }
+
+    linksTableBody.innerHTML = '';
+    noLinksMessage.style.display = 'none';
+
+    linksUnsubscribe = db.collection('redirect_links')
+      .orderBy('createdAt', 'desc')
+      .onSnapshot(
+        (snapshot) => {
+          const links = [];
+          snapshot.forEach((doc) => {
+            links.push({
+              id: doc.id,
+              ...doc.data()
+            });
+          });
+
+          renderLinks(links);
+        },
+        (error) => {
+          console.error('Error loading links:', error);
+          noLinksMessage.innerHTML = '<p style="color: #c62828;">Failed to load links. Please refresh the page.</p>';
+          noLinksMessage.style.display = 'block';
+        }
+      );
+  }
+
+  // HTML escape function to prevent XSS
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Render Links Table
+  function renderLinks(links) {
+    linksTableBody.innerHTML = '';
+
+    if (links.length === 0) {
+      noLinksMessage.style.display = 'block';
+      document.getElementById('linksTable').style.display = 'none';
+      return;
+    }
+
+    noLinksMessage.style.display = 'none';
+    document.getElementById('linksTable').style.display = 'table';
+
+    links.forEach((link) => {
+      const row = document.createElement('tr');
+
+      // Tag cell - use textContent to prevent XSS
+      const tagCell = document.createElement('td');
+      const tagStrong = document.createElement('strong');
+      tagStrong.textContent = link.tag;
+      tagCell.appendChild(tagStrong);
+      row.appendChild(tagCell);
+
+      // Total Clicks cell
+      const clicksCell = document.createElement('td');
+      clicksCell.innerHTML = `<span style="font-size: 1.2rem; font-weight: 600; color: var(--primary-color);">${link.totalClicks || 0}</span>`;
+      row.appendChild(clicksCell);
+
+      // Platform Stats cell
+      const statsCell = document.createElement('td');
+      const activePlatforms = [];
+      if (link.androidUrl) activePlatforms.push('Android');
+      if (link.iosUrl) activePlatforms.push('iOS');
+      if (link.windowsUrl) activePlatforms.push('Windows');
+      if (link.macUrl) activePlatforms.push('Mac');
+      if (link.linuxUrl) activePlatforms.push('Linux');
+
+      let statsHTML = `<div class="platform-badges">`;
+      if (activePlatforms.length > 0) {
+        activePlatforms.forEach(platform => {
+          statsHTML += `<span class="platform-badge active">${platform}</span>`;
+        });
+      } else {
+        statsHTML += `<span class="platform-badge">Default only</span>`;
+      }
+      statsHTML += `</div>`;
+      statsCell.innerHTML = statsHTML;
+      row.appendChild(statsCell);
+
+      // Short URL cell - escape tag to prevent XSS
+      const urlCell = document.createElement('td');
+      const shortUrl = `${window.location.origin}/link/${encodeURIComponent(link.tag)}`;
+      const codeElement = document.createElement('code');
+      codeElement.style.background = '#f5f5f5';
+      codeElement.style.padding = '0.25rem 0.5rem';
+      codeElement.style.borderRadius = '4px';
+      codeElement.style.fontSize = '0.85rem';
+      codeElement.textContent = shortUrl;
+      urlCell.appendChild(codeElement);
+      row.appendChild(urlCell);
+
+      // Actions cell - escape IDs to prevent XSS
+      const actionCell = document.createElement('td');
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'action-buttons';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'table-action-btn copy-btn';
+      copyBtn.textContent = '📋 Copy';
+      copyBtn.onclick = () => copyLink(shortUrl);
+
+      const analyticsBtn = document.createElement('button');
+      analyticsBtn.className = 'table-action-btn analytics-btn';
+      analyticsBtn.textContent = '📊 Analytics';
+      analyticsBtn.onclick = () => showAnalytics(link.id);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'table-action-btn edit-btn';
+      editBtn.textContent = '✏️ Edit';
+      editBtn.onclick = () => editLink(link.id);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'table-action-btn delete-btn';
+      deleteBtn.textContent = '🗑️ Delete';
+      deleteBtn.onclick = () => deleteLink(link.id);
+
+      actionsDiv.appendChild(copyBtn);
+      actionsDiv.appendChild(analyticsBtn);
+      actionsDiv.appendChild(editBtn);
+      actionsDiv.appendChild(deleteBtn);
+      actionCell.appendChild(actionsDiv);
+      row.appendChild(actionCell);
+
+      linksTableBody.appendChild(row);
+    });
+  }
+
+  // Open Create Link Modal
+  if (createLinkButton) {
+    createLinkButton.addEventListener('click', () => {
+      try {
+        modalTitle.textContent = 'Create New Redirect Link';
+        linkForm.reset();
+        document.getElementById('linkId').value = '';
+        saveLinkButton.textContent = 'Create Link';
+        linkModal.style.display = 'block';
+      } catch (error) {
+        console.error('Error opening modal:', error);
+        alert('Error opening modal: ' + error.message);
+      }
+    });
+  } else {
+    console.error('Create Link button not found!');
+  }
+
+  // Close Modal
+  if (closeModal) {
+    closeModal.addEventListener('click', () => {
+      linkModal.style.display = 'none';
+    });
+  }
+
+  if (cancelButton) {
+    cancelButton.addEventListener('click', () => {
+      linkModal.style.display = 'none';
+    });
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (e) => {
+    if (e.target === linkModal) {
+      linkModal.style.display = 'none';
+    }
+    if (e.target === analyticsModal) {
+      analyticsModal.style.display = 'none';
+    }
+  });
+
+  // Validate URL to prevent XSS
+  function isValidUrl(url) {
+    if (!url) return true; // Empty URLs are allowed for optional fields
+    try {
+      const urlObj = new URL(url);
+      // Only allow http and https protocols
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Validate tag format
+  function isValidTag(tag) {
+    // Only allow alphanumeric, hyphens, and underscores
+    return /^[a-zA-Z0-9_\-]+$/.test(tag);
+  }
+
+  // Save Link (Create or Update)
+  linkForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const linkId = document.getElementById('linkId').value;
+    const tag = document.getElementById('tag').value.trim();
+    const defaultUrl = document.getElementById('defaultUrl').value.trim();
+    const androidUrl = document.getElementById('androidUrl').value.trim();
+    const iosUrl = document.getElementById('iosUrl').value.trim();
+    const windowsUrl = document.getElementById('windowsUrl').value.trim();
+    const macUrl = document.getElementById('macUrl').value.trim();
+    const linuxUrl = document.getElementById('linuxUrl').value.trim();
+
+    saveLinkButton.disabled = true;
+    saveLinkButton.innerHTML = '<span class="loading"></span> Saving...';
+
+    try {
+      // Validate tag format
+      if (!isValidTag(tag)) {
+        throw new Error('Tag can only contain letters, numbers, hyphens, and underscores.');
+      }
+
+      // Validate URLs
+      const urls = [
+        { name: 'Default URL', value: defaultUrl },
+        { name: 'Android URL', value: androidUrl },
+        { name: 'iOS URL', value: iosUrl },
+        { name: 'Windows URL', value: windowsUrl },
+        { name: 'Mac URL', value: macUrl },
+        { name: 'Linux URL', value: linuxUrl }
+      ];
+
+      for (const url of urls) {
+        if (url.value && !isValidUrl(url.value)) {
+          throw new Error(`${url.name} must be a valid HTTP or HTTPS URL.`);
+        }
+      }
+
+      // Ensure default URL is provided
+      if (!defaultUrl) {
+        throw new Error('Default URL is required.');
+      }
+      if (linkId) {
+        // Update existing link
+        const linkRef = db.collection('redirect_links').doc(linkId);
+
+        // Check if tag is unique (excluding current link)
+        const tagExists = await db.collection('redirect_links')
+          .where('tag', '==', tag)
+          .get();
+
+        if (!tagExists.empty && tagExists.docs[0].id !== linkId) {
+          throw new Error('This tag is already in use. Please choose a different tag.');
+        }
+
+        await linkRef.update({
+          tag,
+          defaultUrl,
+          androidUrl: androidUrl || firebase.firestore.FieldValue.delete(),
+          iosUrl: iosUrl || firebase.firestore.FieldValue.delete(),
+          windowsUrl: windowsUrl || firebase.firestore.FieldValue.delete(),
+          macUrl: macUrl || firebase.firestore.FieldValue.delete(),
+          linuxUrl: linuxUrl || firebase.firestore.FieldValue.delete(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        // Check if tag is unique
+        const tagExists = await db.collection('redirect_links')
+          .where('tag', '==', tag)
+          .get();
+
+        if (!tagExists.empty) {
+          throw new Error('This tag is already in use. Please choose a different tag.');
+        }
+
+        // Create new link
+        await db.collection('redirect_links').add({
+          tag,
+          defaultUrl,
+          androidUrl: androidUrl || null,
+          iosUrl: iosUrl || null,
+          windowsUrl: windowsUrl || null,
+          macUrl: macUrl || null,
+          linuxUrl: linuxUrl || null,
+          totalClicks: 0,
+          androidClicks: 0,
+          iosClicks: 0,
+          windowsClicks: 0,
+          macClicks: 0,
+          linuxClicks: 0,
+          defaultClicks: 0,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      linkModal.style.display = 'none';
+    } catch (error) {
+      console.error('Error saving link:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      saveLinkButton.disabled = false;
+      saveLinkButton.textContent = linkId ? 'Update Link' : 'Create Link';
+    }
+  });
+
+  // Make functions global so they can be called from onclick handlers
+  window.editLink = editLink;
+  window.deleteLink = deleteLink;
+  window.copyLink = copyLink;
+  window.showAnalytics = showAnalytics;
+
+  // Edit Link
+  async function editLink(linkId) {
+    try {
+      const doc = await db.collection('redirect_links').doc(linkId).get();
+
+      if (!doc.exists) {
+        alert('Link not found');
+        return;
+      }
+
+      const link = doc.data();
+
+      modalTitle.textContent = 'Edit Redirect Link';
+      document.getElementById('linkId').value = linkId;
+      document.getElementById('tag').value = link.tag;
+      document.getElementById('defaultUrl').value = link.defaultUrl;
+      document.getElementById('androidUrl').value = link.androidUrl || '';
+      document.getElementById('iosUrl').value = link.iosUrl || '';
+      document.getElementById('windowsUrl').value = link.windowsUrl || '';
+      document.getElementById('macUrl').value = link.macUrl || '';
+      document.getElementById('linuxUrl').value = link.linuxUrl || '';
+
+      saveLinkButton.textContent = 'Update Link';
+      linkModal.style.display = 'block';
+    } catch (error) {
+      console.error('Error loading link:', error);
+      alert('Failed to load link details');
+    }
+  }
+
+  // Delete Link
+  async function deleteLink(linkId) {
+    if (!confirm('Are you sure you want to delete this redirect link? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await db.collection('redirect_links').doc(linkId).delete();
+    } catch (error) {
+      console.error('Error deleting link:', error);
+      alert('Failed to delete link');
+    }
+  }
+
+  // Copy Link to Clipboard
+  function copyLink(shortUrl) {
+    navigator.clipboard.writeText(shortUrl).then(() => {
+      showNotification('Link copied to clipboard!');
+    }).catch(() => {
+      alert('Failed to copy link. Please copy manually.');
+    });
+  }
+
+  // Show Notification
+  function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+
+  // Show Analytics
+  async function showAnalytics(linkId) {
+    try {
+      const doc = await db.collection('redirect_links').doc(linkId).get();
+
+      if (!doc.exists) {
+        alert('Link not found');
+        return;
+      }
+
+      const link = doc.data();
+      const shortUrl = `${window.location.origin}/link/${link.tag}`;
+
+      // Update analytics modal
+      document.getElementById('analyticsShortUrl').textContent = shortUrl;
+      document.getElementById('totalClicks').textContent = link.totalClicks || 0;
+      document.getElementById('androidClicks').textContent = link.androidClicks || 0;
+      document.getElementById('iosClicks').textContent = link.iosClicks || 0;
+      document.getElementById('windowsClicks').textContent = link.windowsClicks || 0;
+      document.getElementById('macClicks').textContent = link.macClicks || 0;
+      document.getElementById('linuxClicks').textContent = link.linuxClicks || 0;
+      document.getElementById('defaultClicks').textContent = link.defaultClicks || 0;
+
+      analyticsModal.style.display = 'block';
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+      alert('Failed to load analytics');
+    }
+  }
+
+  // Close Analytics Modal
+  if (closeAnalyticsModal) {
+    closeAnalyticsModal.addEventListener('click', () => {
+      analyticsModal.style.display = 'none';
+    });
+  }
+}
+
+// Call initialization when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeLinkManagement);
+} else {
+  // DOM is already ready
+  initializeLinkManagement();
+}

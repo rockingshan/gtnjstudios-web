@@ -60,7 +60,16 @@
           Logout
         </button>
 
-        <div class="requests-table">
+        <div class="admin-nav">
+          <button class="nav-tab active" data-tab="deletion-requests">
+            📋 Deletion Requests
+          </button>
+          <button class="nav-tab" data-tab="link-manager">
+            🔗 Link Management
+          </button>
+        </div>
+
+        <div class="requests-table" id="deletion-requests-tab">
           <h2>Deletion Requests</h2>
           <div id="loadingSpinner" style="text-align: center; padding: 2rem;">
             <div class="loading" style="border-color: var(--primary-color); border-top-color: var(--accent-color); width: 40px; height: 40px;"></div>
@@ -87,6 +96,39 @@
             </div>
           </div>
         </div>
+
+        <div class="link-manager-section" id="link-manager-tab" style="display: none;">
+          <div class="link-manager-header">
+            <h2>🔗 Link Management System</h2>
+            <p>Create, manage, and track platform-specific redirect links</p>
+            <button class="create-link-button" id="createLinkButton">
+              ➕ Create New Link
+            </button>
+          </div>
+
+          <div class="links-container">
+            <table id="linksTable">
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th>Total Clicks</th>
+                  <th>Platform Stats</th>
+                  <th>Short URL</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="linksTableBody">
+                <!-- Links will be populated by JavaScript -->
+              </tbody>
+            </table>
+
+            <div id="noLinksMessage" style="text-align: center; padding: 3rem; display: none;">
+              <p style="color: var(--text-secondary); font-size: 1.1rem;">
+                No redirect links found. Click "Create New Link" to get started.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -101,5 +143,174 @@
 
   <!-- Admin Script -->
   <script src="js/admin.js"></script>
+
+  <!-- Link Manager Modal -->
+  <div class="modal" id="linkModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Create New Redirect Link</h2>
+        <button class="close-modal" id="closeModal">&times;</button>
+      </div>
+
+      <form id="linkForm">
+        <input type="hidden" id="linkId">
+
+        <div class="form-group">
+          <label for="tag">Link Tag *</label>
+          <input
+            type="text"
+            id="tag"
+            required
+            placeholder="my-awesome-link"
+            pattern="[a-zA-Z0-9_\-]+"
+            title="Only letters, numbers, hyphens, and underscores allowed"
+          >
+          <small>Used in URL: /link/YOUR-TAG</small>
+        </div>
+
+        <div class="form-group">
+          <label for="defaultUrl">Default URL *</label>
+          <input
+            type="url"
+            id="defaultUrl"
+            required
+            placeholder="https://example.com/default"
+          >
+          <small>Used when no platform matches</small>
+        </div>
+
+        <div class="platform-urls-section">
+          <h3>Platform-Specific URLs (Optional)</h3>
+
+          <div class="form-group">
+            <label for="androidUrl">🤖 Android URL</label>
+            <input
+              type="url"
+              id="androidUrl"
+              placeholder="https://play.google.com/store/apps/..."
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="iosUrl">🍎 iOS URL</label>
+            <input
+              type="url"
+              id="iosUrl"
+              placeholder="https://apps.apple.com/app/..."
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="windowsUrl">🪟 Windows URL</label>
+            <input
+              type="url"
+              id="windowsUrl"
+              placeholder="https://example.com/windows"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="macUrl">💻 Mac URL</label>
+            <input
+              type="url"
+              id="macUrl"
+              placeholder="https://example.com/mac"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="linuxUrl">🐧 Linux URL</label>
+            <input
+              type="url"
+              id="linuxUrl"
+              placeholder="https://example.com/linux"
+            >
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="cancel-button" id="cancelButton">Cancel</button>
+          <button type="submit" class="submit-button" id="saveLinkButton">Save Link</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Analytics Modal -->
+  <div class="modal" id="analyticsModal">
+    <div class="modal-content analytics-modal">
+      <div class="modal-header">
+        <h2>📊 Link Analytics</h2>
+        <button class="close-modal" id="closeAnalyticsModal">&times;</button>
+      </div>
+
+      <div class="analytics-content">
+        <div class="short-url-display" id="analyticsShortUrl"></div>
+
+        <div class="analytics-grid">
+          <div class="analytics-card total-clicks">
+            <div class="analytics-icon">📈</div>
+            <div class="analytics-info">
+              <div class="analytics-value" id="totalClicks">0</div>
+              <div class="analytics-label">Total Clicks</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="platform-stats">
+          <h3>Platform Distribution</h3>
+          <div class="platform-stats-grid">
+            <div class="platform-stat-card android">
+              <div class="platform-icon">🤖</div>
+              <div class="platform-info">
+                <div class="platform-count" id="androidClicks">0</div>
+                <div class="platform-name">Android</div>
+              </div>
+            </div>
+
+            <div class="platform-stat-card ios">
+              <div class="platform-icon">🍎</div>
+              <div class="platform-info">
+                <div class="platform-count" id="iosClicks">0</div>
+                <div class="platform-name">iOS</div>
+              </div>
+            </div>
+
+            <div class="platform-stat-card windows">
+              <div class="platform-icon">🪟</div>
+              <div class="platform-info">
+                <div class="platform-count" id="windowsClicks">0</div>
+                <div class="platform-name">Windows</div>
+              </div>
+            </div>
+
+            <div class="platform-stat-card mac">
+              <div class="platform-icon">💻</div>
+              <div class="platform-info">
+                <div class="platform-count" id="macClicks">0</div>
+                <div class="platform-name">Mac</div>
+              </div>
+            </div>
+
+            <div class="platform-stat-card linux">
+              <div class="platform-icon">🐧</div>
+              <div class="platform-info">
+                <div class="platform-count" id="linuxClicks">0</div>
+                <div class="platform-name">Linux</div>
+              </div>
+            </div>
+
+            <div class="platform-stat-card default">
+              <div class="platform-icon">🌐</div>
+              <div class="platform-info">
+                <div class="platform-count" id="defaultClicks">0</div>
+                <div class="platform-name">Default</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
