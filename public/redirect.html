@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Redirecting...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    body.show-error {
+      opacity: 1;
+    }
+
+    .loader-container {
+      background: white;
+      padding: 3rem;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1.5rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    h1 {
+      color: #333;
+      margin: 0 0 1rem 0;
+      font-size: 1.5rem;
+    }
+
+    p {
+      color: #666;
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    .error-message {
+      color: #c62828;
+      background: #ffebee;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      border-left: 4px solid #c62828;
+    }
+
+    .retry-button {
+      display: inline-block;
+      margin-top: 1.5rem;
+      padding: 0.75rem 2rem;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: transform 0.3s;
+    }
+
+    .retry-button:hover {
+      transform: translateY(-2px);
+      background: #5568d3;
+    }
+  </style>
+</head>
+<body>
+  <div class="loader-container">
+    <div class="spinner"></div>
+    <h1 id="status">Redirecting...</h1>
+    <p id="message">Please wait while we redirect you to the appropriate page.</p>
+    <div id="errorContainer" style="display: none;">
+      <div class="error-message" id="errorMessage"></div>
+      <a href="javascript:window.location.reload()" class="retry-button">Retry</a>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase Config -->
+  <script src="/js/firebaseConfig.js"></script>
+
+  <script>
+    // Wait for Firebase to be ready
+    function waitForFirebase() {
+      return new Promise((resolve) => {
+        if (typeof firebase !== 'undefined' && typeof db !== 'undefined') {
+          resolve();
+        } else {
+          const checkInterval = setInterval(() => {
+            if (typeof firebase !== 'undefined' && typeof db !== 'undefined') {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 50);
+        }
+      });
+    }
+
+    // Get tag from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const tag = urlParams.get('tag') || window.location.pathname.split('/link/')[1];
+
+    const statusEl = document.getElementById('status');
+    const messageEl = document.getElementById('message');
+    const errorContainer = document.getElementById('errorContainer');
+    const errorMessage = document.getElementById('errorMessage');
+
+    // Device Detection
+    function detectDevice() {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const platform = navigator.platform.toLowerCase();
+
+      if (/android/.test(userAgent)) {
+        return 'android';
+      } else if (/iphone|ipad|ipod/.test(userAgent) || /(mac|iphone|ipad|ipod)/.test(platform)) {
+        return 'ios';
+      } else if (/win/.test(platform)) {
+        return 'windows';
+      } else if (/mac/.test(platform)) {
+        return 'mac';
+      } else if (/linux/.test(platform)) {
+        return 'linux';
+      }
+      return 'default';
+    }
+
+    // Update click counts
+    async function updateClickCounts(linkId, device) {
+      try {
+        const linkRef = db.collection('redirect_links').doc(linkId);
+        const doc = await linkRef.get();
+
+        if (doc.exists) {
+          const updateData = {
+            totalClicks: firebase.firestore.FieldValue.increment(1),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+
+          // Increment platform-specific counter
+          const platformCountMap = {
+            'android': 'androidClicks',
+            'ios': 'iosClicks',
+            'windows': 'windowsClicks',
+            'mac': 'macClicks',
+            'linux': 'linuxClicks',
+            'default': 'defaultClicks'
+          };
+
+          const platformCounter = platformCountMap[device] || 'defaultClicks';
+          updateData[platformCounter] = firebase.firestore.FieldValue.increment(1);
+
+          await linkRef.update(updateData);
+        }
+      } catch (error) {
+        console.error('Error updating click counts:', error);
+        // Don't fail redirect if click tracking fails
+      }
+    }
+
+    // Get redirect URL
+    async function getRedirectUrl() {
+      if (!tag) {
+        throw new Error('Invalid redirect link. No tag specified.');
+      }
+
+      try {
+        // Query for the link with matching tag
+        const querySnapshot = await db.collection('redirect_links')
+          .where('tag', '==', tag)
+          .limit(1)
+          .get();
+
+        if (querySnapshot.empty) {
+          throw new Error('Redirect link not found or has been deleted.');
+        }
+
+        const doc = querySnapshot.docs[0];
+        const link = doc.data();
+        const linkId = doc.id;
+
+        // Detect device
+        const device = detectDevice();
+
+        // Get appropriate URL based on device
+        let redirectUrl = link.defaultUrl;
+
+        switch (device) {
+          case 'android':
+            if (link.androidUrl) redirectUrl = link.androidUrl;
+            break;
+          case 'ios':
+            if (link.iosUrl) redirectUrl = link.iosUrl;
+            break;
+          case 'windows':
+            if (link.windowsUrl) redirectUrl = link.windowsUrl;
+            break;
+          case 'mac':
+            if (link.macUrl) redirectUrl = link.macUrl;
+            break;
+          case 'linux':
+            if (link.linuxUrl) redirectUrl = link.linuxUrl;
+            break;
+        }
+
+        // Update click counts and wait for it to complete
+        await updateClickCounts(linkId, device);
+
+        return redirectUrl;
+      } catch (error) {
+        console.error('Error fetching redirect URL:', error);
+        throw error;
+      }
+    }
+
+    // Redirect to URL
+    function redirectTo(url) {
+      // Immediate redirect without delay
+      window.location.replace(url);
+    }
+
+    // Show error
+    function showError(message) {
+      // Make the page visible to show the error
+      document.body.classList.add('show-error');
+      statusEl.textContent = 'Redirect Failed';
+      messageEl.style.display = 'none';
+      errorContainer.style.display = 'block';
+      errorMessage.textContent = message;
+    }
+
+    // Main redirect logic
+    (async function() {
+      try {
+        // If no tag provided, redirect to homepage
+        if (!tag || tag === '' || tag === 'link') {
+          window.location.replace('/');
+          return;
+        }
+
+        // Wait for Firebase to be ready
+        await waitForFirebase();
+
+        const redirectUrl = await getRedirectUrl();
+
+        if (!redirectUrl) {
+          throw new Error('No redirect URL configured for this link.');
+        }
+
+        // Immediate redirect without showing any UI
+        redirectTo(redirectUrl);
+
+      } catch (error) {
+        console.error('Redirect error:', error);
+        showError(error.message || 'An unexpected error occurred during redirect.');
+      }
+    })();
+  </script>
+</body>
+</html>

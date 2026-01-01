@@ -6,6 +6,24 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Allow public read to redirect_links (for redirects)
+    // Allow public update ONLY for click tracking fields
+    // Allow create/delete only for admin
+    match /redirect_links/{document} {
+      allow read: if true;
+
+      // Allow anyone to update click counts
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['totalClicks', 'androidClicks', 'iosClicks', 'windowsClicks',
+                  'macClicks', 'linuxClicks', 'defaultClicks', 'updatedAt']);
+
+      // Allow create/delete only for admin
+      allow create, delete: if request.auth != null && request.auth.token.email == 'gtnjstudios@gmail.com';
+
+      // Allow admin to update anything
+      allow update: if request.auth != null && request.auth.token.email == 'gtnjstudios@gmail.com';
+    }
+
     // All other collections are locked down by default
     match /{document=**} {
       allow read, write: if false;
